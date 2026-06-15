@@ -164,6 +164,72 @@ function getSearchHistory() {
     }
 }
 
+function getRecentViewingShows(limit = MAX_HISTORY_ITEMS) {
+    const history = getViewingHistory();
+    const uniqueShows = [];
+    const seen = new Set();
+
+    history
+        .filter(item => item && item.title)
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+        .forEach(item => {
+            let showKey = item.showIdentifier;
+            if (!showKey && item.sourceName && item.vod_id) {
+                showKey = `${item.sourceName}_${item.vod_id}`;
+            }
+            if (!showKey) {
+                showKey = `${item.title}_${item.sourceName || ''}`;
+            }
+
+            if (seen.has(showKey)) return;
+            seen.add(showKey);
+            uniqueShows.push(item);
+        });
+
+    return uniqueShows.slice(0, limit);
+}
+
+function renderRecentViewing() {
+    const viewingContainer = document.getElementById('recentViewing');
+    if (!viewingContainer) return;
+
+    const recentViewing = getRecentViewingShows();
+
+    if (recentViewing.length === 0) {
+        viewingContainer.innerHTML = '';
+        return;
+    }
+
+    viewingContainer.innerHTML = `
+        <div class="flex justify-between items-center w-full mb-2">
+            <div class="text-gray-500">最近观看:</div>
+        </div>
+    `;
+
+    recentViewing.forEach(item => {
+        const tag = document.createElement('button');
+        tag.className = 'search-tag recent-viewing-tag flex items-center gap-1';
+
+        const episodeText = item.episodeIndex !== undefined ? `第${item.episodeIndex + 1}集` : '';
+        const title = item.title || '未知影片';
+        const label = episodeText ? `${title} ${episodeText}` : title;
+
+        const textSpan = document.createElement('span');
+        textSpan.textContent = label;
+        tag.appendChild(textSpan);
+
+        if (item.timestamp) {
+            tag.title = `观看于: ${new Date(item.timestamp).toLocaleString()}`;
+        }
+
+        tag.onclick = function() {
+            playFromHistory(item.url, title, item.episodeIndex || 0, item.playbackPosition || 0);
+        };
+
+        viewingContainer.appendChild(tag);
+    });
+}
+
 // 保存搜索历史的增强版本 - 添加时间戳和最大数量限制，现在缓存2个月
 function saveSearchHistory(query) {
     if (!query || !query.trim()) return;
@@ -494,6 +560,7 @@ function deleteHistoryItem(encodedUrl) {
 
         // 重新加载历史记录显示
         loadViewingHistory();
+        renderRecentViewing();
 
         // 显示成功提示
         showToast('已删除该记录', 'success');
@@ -760,6 +827,7 @@ function addToViewingHistory(videoInfo) {
 
         // 保存到本地存储
         localStorage.setItem('viewingHistory', JSON.stringify(history));
+        renderRecentViewing();
     } catch (e) {
         // console.error('保存观看历史失败:', e);
     }
@@ -770,6 +838,7 @@ function clearViewingHistory() {
     try {
         localStorage.removeItem('viewingHistory');
         loadViewingHistory(); // 重新加载空的历史记录
+        renderRecentViewing();
         showToast('观看历史已清空', 'success');
     } catch (e) {
         // console.error('清除观看历史失败:', e);
