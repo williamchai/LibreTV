@@ -24,6 +24,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 渲染搜索历史
     renderSearchHistory();
+    renderRecentViewing();
 
     // 设置默认API选择（如果是第一次加载）
     if (!localStorage.getItem('hasInitializedDefaults')) {
